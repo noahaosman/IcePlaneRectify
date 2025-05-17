@@ -124,7 +124,6 @@ function [rectifiedImage,scale_mm_per_pixel] = rectify_image(params, triang, fil
         for i = 1:size(centroids, 1)
             x = centroids(i, 1);
             y = centroids(i, 2);
-            disp([x,y]);
             plot(x, y, 'r+', 'MarkerSize', 10, 'LineWidth', 2);
         end
         

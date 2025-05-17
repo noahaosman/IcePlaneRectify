@@ -23,8 +23,6 @@ triang = multi_view_triangulation(params, false);
 
 [rectifiedImage, scale_mm_per_pixel] = rectify_image(params, triang, 'field_data/frame_000_rect.tif',true);
 
-% figure()
-% imshow(rectifiedImage);
 imwrite(rectifiedImage, 'output/frame_000_rect2.tif');  % Save to file
 
 fprintf('Scale = %.3f mm/pixel\n', scale_mm_per_pixel);
