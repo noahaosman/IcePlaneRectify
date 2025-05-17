@@ -1,0 +1,135 @@
+function [rectifiedImage,scale_mm_per_pixel] = rectify_image(params, triang, filepath, plotQ)
+
+
+    if nargin < 4
+        plotQ = false;
+    end
+
+
+% Plane projection:
+
+    % collect all converged features
+    x = triang.Position(:,1);
+    y = triang.Position(:,2);
+    z = triang.Position(:,3);
+    
+    % create least-sum plane from those points
+    A = [x, y, ones(size(x))]; 
+    coeff = A \ z;
+    a = coeff(1);
+    b = coeff(2);
+    c = coeff(3);
+    z_fit = a*x + b*y + c;
+    [xq, yq] = meshgrid(linspace(-80, 80), linspace(-80, 80));
+    zq = a*xq + b*yq + c;
+
+    % plot plane and features (sanity check)
+    if plotQ
+        hFig1 = figure();
+        mesh(xq, yq, zq);
+        hold on;
+        scatter3(x,y,z,'or')        
+        xlim([-70,90])
+        ylim([-80,80])
+        zlim([100,260])
+        axeslabel('X','Y','Z'
+        pbaspect([1,1,1]);
+        
+        % view([-90,18]) % side view
+        view([-180,-90]) % front view
+        hold off;
+    end
+
+    % Normal vector to plane found above
+    n = [a; b; -1];
+    n = -n / norm(n);
+    
+    % Create orthonormal basis
+    v0 = [0; 1; 0];
+    if abs(dot(n, v0)) > 0.9
+        v0 = [1; 0; 0]; % avoid being parallel
+    end
+    u = cross(v0, n); 
+    u = u / norm(u);
+    v = cross(n, u);
+    
+    R = [u, v, n];
+    
+    K = [params.fx, 0,     params.cx;
+            0,     params.fy, params.cy;
+            0,     0,     1];
+    H = K * R * inv(K);
+    
+    image = imread(filepath);
+    tform = projective2d(H');
+    rectifiedImage = imwarp(image, tform);
+
+
+% Calculate scale:
+    
+    num_points = length(triang.points{1})-1;
+    img_size = size(image);  % original image size
+    test_img = zeros(img_size);
+    
+    % Convert all points and plot them on the image
+    for i = 1:num_points
+        pt = flipud(str2num(triang.points{1}(i))');  % [row; col]
+        test_img(pt(1), pt(2)) = 255;  % mark white pixel
+    end
+    
+    % Rectify
+    test_img_rect = imwarp(test_img, tform);
+    
+    % Label blobs
+    labeled = bwlabel(test_img_rect);
+    props = regionprops(labeled, 'Centroid');
+    
+    % Extract all centroids
+    centroids = cat(1, props.Centroid);
+    num_points = size(triang.Position, 1);
+    scales = [];
+    
+    for i = 1:num_points
+        for j = i+1:num_points
+            % Real-world 3D distance (mm)
+            P1 = triang.Position(i, :);
+            P2 = triang.Position(j, :);
+            real_dist = norm(P1 - P2);
+    
+            % Rectified 2D pixel distance
+            c1 = centroids(i, :);
+            c2 = centroids(j, :);
+            pixel_dist = norm(c1 - c2);
+    
+            % Skip degenerate cases
+            if pixel_dist > 0
+                scale = real_dist / pixel_dist;  % mm per pixel
+                scales(end+1) = scale;
+            end
+        end
+    end
+    
+    % Average scale
+    scale_mm_per_pixel = mean(scales);
+
+    % plot scale reference points (sanity check)
+    if plotQ
+        hFig2 = figure();
+        figure(hFig2);
+        imshow(rectifiedImage);
+        hold on;
+        
+        for i = 1:size(centroids, 1)
+            x = centroids(i, 1);
+            y = centroids(i, 2);
+            disp([x,y]);
+            plot(x, y, 'r+', 'MarkerSize', 10, 'LineWidth', 2);
+            text(x + 5, y, num2str(i), 'Color', 'yellow', 'FontSize', 10, 'FontWeight', 'bold');
+        end
+        
+        title('Rectified Feature Points with Index Labels');
+        hold off;
+    end
+
+end
+
