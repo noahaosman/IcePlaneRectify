@@ -96,7 +96,6 @@ function output = multi_view_triangulation(params, plotQ)
         X1 = [10; 10; 10]; % big number
         X0 = params.X0_init;
         disp(['--------',num2str(i),'--------']);
-        disp(['X0: ',num2str(X0'.*1000)]);
         err = norm(X1 - X0);
         it = 0;
         while err > 0.0001 && norm(X1)<10^6
@@ -112,7 +111,7 @@ function output = multi_view_triangulation(params, plotQ)
             it = it+1;
     
         end
-        disp(['output.Position of feature ',num2str(matched_features(i,2)),':']);
+        disp(['Position of feature ',num2str(matched_features(i,2)),':']);
         disp(1000.*X1')
     
     
